@@ -2,3 +2,4 @@
 *.class
 *.asm
 *.obj
+core.bin
