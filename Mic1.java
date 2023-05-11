@@ -24,7 +24,7 @@ public class Mic1 {
 
     // Masks
     final short AMASK = 0b11111111; // 8-bit address mask
-    final short SMASK = 0b00111111; // 6-bit address mask
+    final short SMASK = 0b00111111; // 6-bit stack mask
 
     // Memory Access Registers
     int MAR = 0;
@@ -89,15 +89,15 @@ public class Mic1 {
 
                 switch (currentInstruction.getSHIFT()) {
                     case 1:
-                        output = (short) (output >> 1);
+                        output >>= 1;
+                        System.out.println("Shifted right: " + output);
+
                         break;
                     case 2:
-                        output = (short) (output << 1);
+                        output <<= 1;
+                        System.out.println("Shifted left: " + output);
                         break;
                 }
-
-                if (output < 0)
-                    output += 65536;
 
                 // Figure out where to write the data.
                 short data_out_loc = currentInstruction.getC();
@@ -150,11 +150,13 @@ public class Mic1 {
                 // Branching logic.
                 switch (currentInstruction.getCONDITION()) {
                     case 1: // Check ALUN
-                        if (!ALUN)
-                            break;
+                        if (ALUN)
+                            Mmux = true;
+                        break;
                     case 2: // Check ALUZ
-                        if (!ALUZ)
-                            break;
+                        if (ALUZ)
+                            Mmux = true;
+                        break;
                     case 3: // Always branch
                         Mmux = true;
                         break;
@@ -178,36 +180,23 @@ public class Mic1 {
         }
     }
 
-    boolean isNegative(int test) {
-        return test > 32767;
-    }
-
     short simulateALU(short ALUCODE, short a, short b) {
         int retVal = 0; // Int, not short, because Java is weird.
+
+        System.out.println("a: " + a + "\nb: " + b + "\n");
 
         // TODO: Implement Proper ALU logic.
         switch (ALUCODE) {
             case 0:
                 System.out.println("Computing " + a + " + " + b);
-
-                if (isNegative(a) && isNegative(b)) {
-                    retVal = twosComplement(a) + twosComplement(b);
-                    retVal = twosComplement((short) retVal);
-                } else if (isNegative(a)) {
-                    retVal = b - twosComplement(a);
-                } else if (isNegative(b)) {
-                    retVal = a - twosComplement(b);
-                } else {
-                    retVal = a + b;
-                }
-
+                retVal = a + b;
                 break;
             case 1:
                 System.out.println("Computing " + a + " & " + b);
                 retVal = a & b;
                 break;
             case 2:
-                System.out.println("Passing a through: " + a);
+                System.out.println("Passing through a: " + a);
                 retVal = a;
                 break;
             case 3:
@@ -220,7 +209,7 @@ public class Mic1 {
             retVal += 65536;
 
         ALUZ = retVal == 0;
-        ALUN = isNegative(retVal);
+        ALUN = retVal < 0;
 
         System.out.println("ALU Output: " + retVal);
         System.out.println();
@@ -346,6 +335,8 @@ public class Mic1 {
             fw.write("PC: " + programCounter + "\n");
             fw.write("AC: " + accumulator + "\n");
             fw.write("SP: " + stackPointer + "\n");
+            fw.write("IR: " + instructionRegister + "\n");
+            fw.write("TIR: " + temporaryInstructionRegister + "\n");
             fw.write("MAR: " + MAR + "\n");
             fw.write("MBR: " + MBR + "\n");
             fw.write("A: " + A + "\n");
@@ -410,8 +401,8 @@ public class Mic1 {
         mic1Emulator.loadInstructionSet(args[1]);
 
         // while (true) {
-        mic1Emulator.execute();
-        mic1Emulator.printState();
+        // mic1Emulator.execute();
+        // mic1Emulator.printState();
         // }
     }
 }
