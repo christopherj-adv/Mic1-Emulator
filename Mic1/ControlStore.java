@@ -103,7 +103,6 @@ public class ControlStore {
             sb.append(" | ");
             sb.append("SHIFT: " + SHIFT);
             sb.append(" | ");
-
             sb.append("MBR: " + (MBR ? 1 : 0));
             sb.append(" | ");
             sb.append("MAR: " + (MAR ? 1 : 0));

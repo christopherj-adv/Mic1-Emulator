@@ -3,7 +3,6 @@ import java.util.Scanner;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileWriter;
 
 import Mic1.ControlStore;
 import Mic1.ControlStore.Instruction;
@@ -43,19 +42,19 @@ public class Mic1 {
     String[] programMemory;
     ControlStore controlStore;
 
-    Mic1(String promPath) throws PromFileException {
+    Mic1(String promPath) throws PromFileException, MemoryException {
         LinkedList<String> promData = new LinkedList<String>();
 
         if (!loadPromFile(promPath, promData))
             throw new PromFileException("Failed to load PROM file.");
 
-        if (promData.size() > 256)
+        if (promData.size() > 256) // Simulates limitation of Control Store.
             throw new PromFileException("PROM file too large.");
 
         controlStore = new ControlStore(promData);
     }
 
-    void execute() {
+    void execute() throws MemoryException {
         halted = false;
 
         while (!halted) {
@@ -167,8 +166,8 @@ public class Mic1 {
 
                 // Now process reading / writing.
                 if (currentInstruction.getRD()) {
-                    if (MAR >= pmlen)
-                        dumpProgram();
+                    if (pmlen < 0 || pmlen <= MAR)
+                        throw new MemoryException(getState());
                     else {
                         System.out.println("Setting mbr to " + MAR + ": " + programMemory[MAR]);
                         MBR = Short.parseShort(programMemory[MAR], 2);
@@ -274,10 +273,6 @@ public class Mic1 {
         return retVal;
     }
 
-    private short twosComplement(short val) {
-        return (short) ((~val + 1) & 0xFFFF);
-    }
-
     private Boolean loadInstructionSet(String path) {
         int programMemoryIdx = 0;
         File f = new File(path);
@@ -325,64 +320,39 @@ public class Mic1 {
         return true;
     }
 
-    private void dumpProgram() {
-        System.out.print("Segmentation fault ");
-
-        try {
-            FileWriter fw = new FileWriter("core.bin");
-
-            fw.write("Mic1 State:");
-            fw.write("PC: " + programCounter + "\n");
-            fw.write("AC: " + accumulator + "\n");
-            fw.write("SP: " + stackPointer + "\n");
-            fw.write("IR: " + instructionRegister + "\n");
-            fw.write("TIR: " + temporaryInstructionRegister + "\n");
-            fw.write("MAR: " + MAR + "\n");
-            fw.write("MBR: " + MBR + "\n");
-            fw.write("A: " + A + "\n");
-            fw.write("B: " + B + "\n");
-            fw.write("C: " + C + "\n");
-            fw.write("D: " + D + "\n");
-            fw.write("E: " + E + "\n");
-            fw.write("F: " + F + "\n");
-            fw.write("* * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\n");
-
-            fw.flush();
-
-            fw.write("Program Memory:\n");
-
-            for (int i = 0; i < pmlen; i++)
-                fw.write(programMemory[i] + "\n");
-
-            fw.flush();
-            fw.close();
-
-            System.out.println("(core dumped)");
-        } catch (Exception e) {
-            System.out.println("Failed to write core dump.");
-        }
-
-        System.exit(1);
-    }
-
     // Getters
     public boolean isHalted() {
         return halted;
     }
 
-    private void printState() {
-        System.out.println("PC: " + programCounter);
-        System.out.println("AC: " + accumulator);
-        System.out.println("SP: " + stackPointer);
-        System.out.println("A: " + A);
-        System.out.println("B: " + B);
-        System.out.println("C: " + C);
-        System.out.println("D: " + D);
-        System.out.println("E: " + E);
-        System.out.println("F: " + F);
+    private String getState() {
+        StringBuffer sb = new StringBuffer();
+
+        sb.append("Mic1 State:");
+        sb.append("PC: " + programCounter + "\n");
+        sb.append("AC: " + accumulator + "\n");
+        sb.append("SP: " + stackPointer + "\n");
+        sb.append("IR: " + instructionRegister + "\n");
+        sb.append("TIR: " + temporaryInstructionRegister + "\n");
+        sb.append("MAR: " + MAR + "\n");
+        sb.append("MBR: " + MBR + "\n");
+        sb.append("A: " + A + "\n");
+        sb.append("B: " + B + "\n");
+        sb.append("C: " + C + "\n");
+        sb.append("D: " + D + "\n");
+        sb.append("E: " + E + "\n");
+        sb.append("F: " + F + "\n");
+        sb.append("* * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\n");
+
+        sb.append("Program Memory:\n");
+
+        for (int i = 0; i < pmlen; i++)
+            sb.append(programMemory[i] + "\n");
+
+        return sb.toString();
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws MemoryException {
         if (args.length != 2) {
             System.out.println("Usage: java Mic1 <prom file> <input file>.");
             System.exit(1);
@@ -396,13 +366,24 @@ public class Mic1 {
             System.out.println(e.getMessage());
             System.exit(1);
             return;
+        } catch (Exception e) {
+            System.exit(1);
+            return;
         }
+
+        Scanner kbScanner = new Scanner(System.in, "UTF-8");
+        String input;
 
         mic1Emulator.loadInstructionSet(args[1]);
 
-        // while (true) {
-        // mic1Emulator.execute();
-        // mic1Emulator.printState();
-        // }
+        do {
+            mic1Emulator.execute();
+            mic1Emulator.getState();
+            input = kbScanner.nextLine();
+        } while (input != "");
+
+        kbScanner.close();
+        System.exit(0);
+        return;
     }
 }
