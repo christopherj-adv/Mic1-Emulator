@@ -6,6 +6,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "Mic1",
+            "request": "launch",
+            "mainClass": "Mic1",
+            "projectName": "Mic1-Emulator_87f5520"
+        },
+        {
+            "type": "java",
             "name": "Current File",
             "request": "launch",
             "mainClass": "${file}",

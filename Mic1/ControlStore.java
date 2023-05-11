@@ -87,7 +87,7 @@ public class ControlStore {
 
             C = Short.parseShort(instruction.substring(12, 16), 2);
             B = Short.parseShort(instruction.substring(16, 20), 2);
-            A = Short.parseShort(instruction.substring(20, 25), 2);
+            A = Short.parseShort(instruction.substring(20, 24), 2);
             ADDR = Short.parseShort(instruction.substring(24, 32), 2);
         }
 
@@ -147,6 +147,7 @@ public class ControlStore {
             return sb.toString();
         }
 
+        @Override
         public String toString() {
             return instruction;
         }
