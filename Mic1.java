@@ -320,7 +320,7 @@ public class Mic1 {
     public String getBasicState() {
         StringBuffer sb = new StringBuffer();
 
-        sb.append("Mic1 State:");
+        sb.append("Mic1 State\n");
         sb.append("PC: " + programCounter + "\n");
         sb.append("AC: " + accumulator + "\n");
         sb.append("SP: " + stackPointer + "\n");
