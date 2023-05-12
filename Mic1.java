@@ -42,7 +42,7 @@ public class Mic1 {
     String[] programMemory;
     ControlStore controlStore;
 
-    Mic1(String promPath) throws PromFileException, MemoryException {
+    Mic1(String promPath) throws PromFileException, MemoryAccessException {
         LinkedList<String> promData = new LinkedList<String>();
 
         if (!loadPromFile(promPath, promData))
@@ -54,16 +54,13 @@ public class Mic1 {
         controlStore = new ControlStore(promData);
     }
 
-    void execute() throws MemoryException {
+    void execute() throws MemoryAccessException {
         halted = false;
 
         while (!halted) {
             ALUZ = ALUN = Mmux = false;
 
             Instruction currentInstruction = controlStore.getInstruction(MPC);
-            System.out.println("Running instruction at MPC: " + MPC);
-            System.out.println(currentInstruction.toFormattedString());
-
             MPC++;
 
             if (currentInstruction.getRD() && currentInstruction.getWR()) // Check for halt
@@ -89,12 +86,9 @@ public class Mic1 {
                 switch (currentInstruction.getSHIFT()) {
                     case 1:
                         output >>= 1;
-                        System.out.println("Shifted right: " + output);
-
                         break;
                     case 2:
                         output <<= 1;
-                        System.out.println("Shifted left: " + output);
                         break;
                 }
 
@@ -167,11 +161,19 @@ public class Mic1 {
                 // Now process reading / writing.
                 if (currentInstruction.getRD()) {
                     if (pmlen < 0 || pmlen <= MAR)
-                        throw new MemoryException(getState());
+                        throw new MemoryAccessException(getState(), MAR);
                     else {
-                        System.out.println("Setting mbr to " + MAR + ": " + programMemory[MAR]);
-                        MBR = Short.parseShort(programMemory[MAR], 2);
-                        System.out.println("MBR: " + MBR);
+                        /*
+                         * More Java weirdness. Despite parsing to a signed
+                         * short, Short.parseShort() seems to return a positive
+                         * value, ignoring twos complement for the leading bit.
+                         */
+
+                        if (programMemory[MAR].charAt(0) == '1') {
+                            MBR = (short) (Integer.parseInt(programMemory[MAR].substring(1, 16), 2) - 32768);
+                        } else {
+                            MBR = Short.parseShort(programMemory[MAR].substring(1, 16), 2);
+                        }
                     }
                 } else if (currentInstruction.getWR())
                     programMemory[MAR] = String.format("%16s", Integer.toBinaryString(MBR));// .replace(' ', '0');
@@ -182,37 +184,27 @@ public class Mic1 {
     short simulateALU(short ALUCODE, short a, short b) {
         int retVal = 0; // Int, not short, because Java is weird.
 
-        System.out.println("a: " + a + "\nb: " + b + "\n");
-
         // TODO: Implement Proper ALU logic.
         switch (ALUCODE) {
             case 0:
-                System.out.println("Computing " + a + " + " + b);
                 retVal = a + b;
                 break;
             case 1:
-                System.out.println("Computing " + a + " & " + b);
                 retVal = a & b;
                 break;
             case 2:
-                System.out.println("Passing through a: " + a);
                 retVal = a;
                 break;
             case 3:
-                System.out.println("Inverting a: " + a);
-                retVal = ~a & 0x7FFF;
+                retVal = ~a;
                 break;
         }
 
-        if (retVal < 0)
-            retVal += 65536;
+        if (retVal > Short.MAX_VALUE)
+            retVal -= 65536;
 
         ALUZ = retVal == 0;
         ALUN = retVal < 0;
-
-        System.out.println("ALU Output: " + retVal);
-        System.out.println();
-
         return (short) (retVal % 65536);
     }
 
@@ -325,6 +317,27 @@ public class Mic1 {
         return halted;
     }
 
+    public String getBasicState() {
+        StringBuffer sb = new StringBuffer();
+
+        sb.append("Mic1 State:");
+        sb.append("PC: " + programCounter + "\n");
+        sb.append("AC: " + accumulator + "\n");
+        sb.append("SP: " + stackPointer + "\n");
+        sb.append("IR: " + instructionRegister + "\n");
+        sb.append("TIR: " + temporaryInstructionRegister + "\n");
+        sb.append("MAR: " + MAR + "\n");
+        sb.append("MBR: " + MBR + "\n");
+        sb.append("A: " + A + "\n");
+        sb.append("B: " + B + "\n");
+        sb.append("C: " + C + "\n");
+        sb.append("D: " + D + "\n");
+        sb.append("E: " + E + "\n");
+        sb.append("F: " + F + "\n");
+
+        return sb.toString();
+    }
+
     private String getState() {
         StringBuffer sb = new StringBuffer();
 
@@ -352,7 +365,7 @@ public class Mic1 {
         return sb.toString();
     }
 
-    public static void main(String[] args) throws MemoryException {
+    public static void main(String[] args) throws MemoryAccessException {
         if (args.length != 2) {
             System.out.println("Usage: java Mic1 <prom file> <input file>.");
             System.exit(1);
@@ -378,7 +391,7 @@ public class Mic1 {
 
         do {
             mic1Emulator.execute();
-            mic1Emulator.getState();
+            System.out.println(mic1Emulator.getBasicState());
             input = kbScanner.nextLine();
         } while (input != "");
 

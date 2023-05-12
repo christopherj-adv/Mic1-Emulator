@@ -2,8 +2,10 @@ package Mic1.Exceptions;
 
 import java.io.FileWriter;
 
-public class MemoryException extends Exception {
-    public MemoryException(String state) {
+public class MemoryAccessException extends Exception {
+    public MemoryAccessException(String state, int address) {
+        System.out.println("Attempted memory access to invalid location");
+        System.out.println("ProgramMemory[" + address + "]");
         System.out.print("Segmentation fault ");
 
         try {
